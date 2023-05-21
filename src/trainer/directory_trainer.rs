@@ -1,5 +1,4 @@
 use colored::Colorize;
-use debug_print::debug_println;
 use regex::Regex;
 use std::collections::HashMap;
 use std::fs;

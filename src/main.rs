@@ -25,8 +25,10 @@ fn main() {
 
     if args.len() > 1 {
         match args[1].as_str() {
-            "cli_trainer" => trainer::cli(),
-            "train" => stdout_wrapper(|| trainer::train(args[2].clone())),
+            "cli_trainer" => trainer::cli::cli(),
+            "train" => stdout_wrapper(|| {
+                trainer::directory_trainer::DirectoryTrainer::new(args[2].clone()).call()
+            }),
             "processor" => stdout_wrapper(|| {
                 image_processor::call(&args[2]);
             }),
