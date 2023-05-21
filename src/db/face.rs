@@ -1,8 +1,8 @@
 use crate::db::*;
+use colored::Colorize;
 use debug_print::debug_println;
 use serde_json::json;
 use sqlx::FromRow;
-use colored::Colorize;
 
 #[derive(Clone, FromRow, Debug)]
 pub struct Face {

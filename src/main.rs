@@ -26,7 +26,7 @@ fn main() {
     if args.len() > 1 {
         match args[1].as_str() {
             "cli_trainer" => trainer::cli(),
-            "train" => stdout_wrapper(|| trainer::train()),
+            "train" => stdout_wrapper(|| trainer::train(&args[2])),
             "processor" => stdout_wrapper(|| {
                 image_processor::call(&args[2]);
             }),
@@ -42,7 +42,7 @@ fn main() {
 }
 
 fn stdout_wrapper<F: Fn()>(f: F) {
-    let mut sp = Spinner::new(Spinners::Dots12, "Processing...".into());
+    let mut sp = Spinner::new(Spinners::Monkey, "Processing...".into());
     let start = Instant::now();
     f();
     let duration = start.elapsed();

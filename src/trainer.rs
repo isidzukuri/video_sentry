@@ -1,10 +1,11 @@
-use colored::*;
+use colored::Colorize;
 use debug_print::debug_println;
 use regex::Regex;
 use std::collections::HashMap;
+use std::fs;
 use std::io;
+use std::path::Path;
 use uuid::Uuid;
-use colored::Colorize;
 
 use crate::detection;
 use crate::image_processor;
@@ -76,39 +77,24 @@ pub fn cli() {
     println!("{}", "See ya =)".green().bold());
 }
 
-pub fn train() {
+pub fn train(dir: &String) {
     let mut people: HashMap<String, String> = HashMap::new();
+    let path = Path::new(dir);
+    let photos = files_list(path);
 
-    // photos with exact one face
-    let photos: [String; 16] = [
-        "/home/isidzukuri/rust_projects/video_sentry/people/a/1.jpg".to_string(),
-        "/home/isidzukuri/rust_projects/video_sentry/people/b/1.jpg".to_string(),
-        "/home/isidzukuri/rust_projects/video_sentry/people/b/2.jpg".to_string(),
-        "/home/isidzukuri/rust_projects/video_sentry/people/b/3.jpg".to_string(),
-        "/home/isidzukuri/rust_projects/video_sentry/people/b/4.jpg".to_string(),
-        "/home/isidzukuri/rust_projects/video_sentry/people/c/1.jpg".to_string(),
-        "/home/isidzukuri/rust_projects/video_sentry/people/c/2.jpeg".to_string(),
-        "/home/isidzukuri/rust_projects/video_sentry/people/c/3.jpeg".to_string(),
-        "/home/isidzukuri/rust_projects/video_sentry/people/c/4.jpeg".to_string(),
-        "/home/isidzukuri/rust_projects/video_sentry/people/c/5.jpeg".to_string(),
-        "/home/isidzukuri/rust_projects/video_sentry/people/d/1.jpg".to_string(),
-        "/home/isidzukuri/rust_projects/video_sentry/people/d/2.jpg".to_string(),
-        "/home/isidzukuri/rust_projects/video_sentry/people/d/3.jpg".to_string(),
-        "/home/isidzukuri/rust_projects/video_sentry/people/d/4.jpg".to_string(),
-        "/home/isidzukuri/rust_projects/video_sentry/people/armas/1.jpg".to_string(),
-        "/home/isidzukuri/rust_projects/video_sentry/people/marion_cotillard/1.jpg".to_string(),
-    ];
-
+    let person_name_regex = Regex::new(r"(?:.*\/)?([a-z_]+)\/.*$").unwrap();
     for item in photos.iter() {
+        let caps = person_name_regex.captures(item).unwrap();
+        let name = match caps.get(1) {
+            Some(mtch) => mtch.as_str().to_string(),
+            None => panic!("Name of person is not found in path of the image"),
+        };
+
         println!("{}", item.yellow());
         let photo = match detection::call(&item) {
             Err(error) => panic!("Face detection failed: {:?}", error),
             Ok(photo) => photo,
         };
-
-        let re = Regex::new(r".*\/([a-z_]+)\/.*$").unwrap();
-        let caps = re.captures(item).unwrap();
-        let name = caps.get(1).map_or("", |m| m.as_str()).to_string();
 
         let mut recognized_person_uuid = "".to_string();
         if people.contains_key(&name) {
@@ -127,4 +113,21 @@ pub fn train() {
         let update_params = vec![moderated, person_uuid];
         crate::db::face::Face::update(&face_uuid, update_params);
     }
+}
+
+fn files_list(dir: &Path) -> Vec<String> {
+    let mut result = Vec::new();
+
+    if dir.is_dir() {
+        for entry in fs::read_dir(dir).unwrap() {
+            let entry = entry.unwrap();
+            let path = entry.path();
+            if path.is_dir() {
+                result.append(&mut files_list(&path));
+            } else {
+                result.push(path.to_str().unwrap().to_string());
+            }
+        }
+    }
+    result
 }

@@ -1,7 +1,7 @@
 use crate::db::*;
+use colored::Colorize;
 use debug_print::debug_println;
 use sqlx::FromRow;
-use colored::Colorize;
 
 #[derive(Clone, FromRow, Debug, PartialEq)]
 pub struct Person {
