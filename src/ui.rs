@@ -46,7 +46,7 @@ struct VsUi {
     photos: Vec<UIPhoto>,
     people: Vec<crate::db::person::Person>,
     pub photos_rx: Option<mpsc::Receiver<UIPhoto>>,
-    show_new_person_dialog: bool,
+    show_new_person_form: bool,
     new_person_name: String,
 }
 
@@ -56,7 +56,7 @@ impl Default for VsUi {
             photos: Vec::new(),
             people: Vec::new(),
             photos_rx: None,
-            show_new_person_dialog: false,
+            show_new_person_form: false,
             new_person_name: String::from(""),
         }
     }
@@ -140,7 +140,7 @@ impl VsUi {
                     let add_person_button = ui.add(egui::Button::new("Add Person"));
 
                     if add_person_button.clicked() {
-                        self.show_new_person_dialog = true;
+                        self.show_new_person_form = true;
                     }
                 });
             });
@@ -156,35 +156,64 @@ impl VsUi {
         });
     }
 
-    fn new_person(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        if self.show_new_person_dialog {
-            egui::Window::new("Add new person")
-                .collapsible(false)
-                .resizable(false)
-                .show(ctx, |ui| {
-                    ui.horizontal(|ui| {
-                        let name_label = ui.label("Name: ");
-                        ui.text_edit_singleline(&mut self.new_person_name)
-                            .labelled_by(name_label.id);
-                    });
-
-                    ui.horizontal(|ui| {
-                        if ui.button("Cancel").clicked() {
-                            self.new_person_name = String::from("");
-                            self.show_new_person_dialog = false;
-                        }
-
-                        if ui.button("Save").clicked() {
-                            crate::db::person::Person::create(
-                                &Uuid::new_v4().to_string(),
-                                &self.new_person_name,
-                            );
-                            self.new_person_name = String::from("");
-                            self.show_new_person_dialog = false;
-                        }
-                    });
+    fn new_person_form(&mut self, ctx: &egui::Context) {
+        if !self.show_new_person_form { return }
+        egui::Window::new("Add new person")
+            .collapsible(false)
+            .resizable(false)
+            .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    let name_label = ui.label("Name: ");
+                    ui.text_edit_singleline(&mut self.new_person_name)
+                        .labelled_by(name_label.id);
                 });
-        }
+
+                ui.horizontal(|ui| {
+                    if ui.button("Cancel").clicked() {
+                        self.new_person_name = String::from("");
+                        self.show_new_person_form = false;
+                    }
+
+                    if ui.button("Save").clicked() {
+                        crate::db::person::Person::create(
+                            &Uuid::new_v4().to_string(),
+                            &self.new_person_name,
+                        );
+                        self.new_person_name = String::from("");
+                        self.show_new_person_form = false;
+                    }
+                });
+            });
+    }
+
+    fn recognition_form(&mut self, ctx: &egui::Context) {
+        // if !self.show_new_person_form { return }
+        // egui::Window::new("Add new person")
+        //     .collapsible(false)
+        //     .resizable(false)
+        //     .show(ctx, |ui| {
+        //         ui.horizontal(|ui| {
+        //             let name_label = ui.label("Name: ");
+        //             ui.text_edit_singleline(&mut self.new_person_name)
+        //                 .labelled_by(name_label.id);
+        //         });
+
+        //         ui.horizontal(|ui| {
+        //             if ui.button("Cancel").clicked() {
+        //                 self.new_person_name = String::from("");
+        //                 self.show_new_person_form = false;
+        //             }
+
+        //             if ui.button("Save").clicked() {
+        //                 crate::db::person::Person::create(
+        //                     &Uuid::new_v4().to_string(),
+        //                     &self.new_person_name,
+        //                 );
+        //                 self.new_person_name = String::from("");
+        //                 self.show_new_person_form = false;
+        //             }
+        //         });
+        //     });
     }
 }
 
@@ -195,7 +224,8 @@ impl eframe::App for VsUi {
 
         self.top_panel(ctx);
         self.photos_list(ctx);
-        self.new_person(ctx, frame);
+        self.new_person_form(ctx);
+        self.recognition_form(ctx);
     }
 }
 

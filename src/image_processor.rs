@@ -4,11 +4,18 @@ use std::collections::HashMap;
 
 const MAX_DISTANCE: f64 = 0.6;
 
-pub fn call(path: &String) -> Vec<(String, f64)> {
-    let mut result: Vec<(String, f64)> = Vec::new();
-    let recognition_results = recognize_faces(&path);
 
-    for (face_uuid, &ref recognition) in recognition_results.iter() {
+pub struct ProcessingResult {
+    pub photo: detection::photo::Photo,
+    pub display_data: Vec<(String, f64)>,
+    pub face_matches: HashMap<String, crate::recognition::Data>
+}
+
+pub fn call(path: &String) -> ProcessingResult {
+    let mut result: Vec<(String, f64)> = Vec::new();
+    let mut recognition_results = recognize_faces(&path);
+
+    for (face_uuid, &ref recognition) in recognition_results.face_matches.iter() {
         if recognition.matches.len() == 0 {
             continue;
         }
@@ -21,10 +28,11 @@ pub fn call(path: &String) -> Vec<(String, f64)> {
         }
     }
     println!("{:?}", result);
-    result
+    recognition_results.display_data = result;
+    recognition_results
 }
 
-pub fn recognize_faces(path: &String) -> HashMap<String, Data> {
+pub fn recognize_faces(path: &String) -> ProcessingResult {
     let mut recognition_results = HashMap::new();
     let photo = match detection::call(&path) {
         Err(error) => panic!("Face detection failed: {:?}", error),
@@ -39,5 +47,5 @@ pub fn recognize_faces(path: &String) -> HashMap<String, Data> {
         recognition_results.insert(face.uuid.clone(), result);
     }
 
-    recognition_results
+    ProcessingResult { photo: photo, face_matches: recognition_results, display_data: Vec::new() }
 }

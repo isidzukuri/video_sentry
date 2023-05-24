@@ -17,7 +17,7 @@ pub fn cli() {
             .to_string();
 
         let path = path.replace('\n', "");
-        let recognition_results = image_processor::recognize_faces(&path);
+        let recognition_results = image_processor::recognize_faces(&path).face_matches;
 
         for (face_uuid, &ref recognition) in recognition_results.iter() {
             let mut person_options: Vec<&crate::db::person::Person> = Vec::new();
