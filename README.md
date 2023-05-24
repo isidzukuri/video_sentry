@@ -1,3 +1,9 @@
+WIP. My first rust project created for self education purpose while learning the language.
+
+`equi`  - gor face detection and recognition 
+`dlib`  - UI
+
+
 ## Instalation
 read `Dockerfile` [TODO: fix dlib compilation in docker image]
 

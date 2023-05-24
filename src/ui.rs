@@ -1,6 +1,7 @@
 use std::fs::File;
 use std::sync::mpsc;
 use std::thread;
+use uuid::Uuid;
 
 use eframe::egui;
 use egui::Color32;
@@ -45,15 +46,29 @@ struct VsUi {
     photos: Vec<UIPhoto>,
     people: Vec<crate::db::person::Person>,
     pub photos_rx: Option<mpsc::Receiver<UIPhoto>>,
+    show_new_person_dialog: bool,
+    new_person_name: String,
+}
+
+impl Default for VsUi {
+    fn default() -> Self {
+        Self {
+            photos: Vec::new(),
+            people: Vec::new(),
+            photos_rx: None,
+            show_new_person_dialog: false,
+            new_person_name: String::from(""),
+        }
+    }
 }
 
 impl VsUi {
     fn new(_context: &eframe::CreationContext<'_>) -> Self {
         let (mut photos_tx, photos_rx) = mpsc::channel();
         let instance = Self {
-            photos: Vec::new(),
             people: crate::db::person::Person::all(),
             photos_rx: Some(photos_rx),
+            ..Default::default()
         };
 
         thread::spawn(move || {
@@ -63,9 +78,7 @@ impl VsUi {
         instance
     }
 
-    fn fetch_photos(
-        photos_tx: &mut std::sync::mpsc::Sender<UIPhoto>
-    ) {
+    fn fetch_photos(photos_tx: &mut std::sync::mpsc::Sender<UIPhoto>) {
         for photo in Photo::all().iter() {
             let ui_photo = UIPhoto {
                 texture: read_image(&photo.uuid, "thumb.jpg"),
@@ -80,7 +93,7 @@ impl VsUi {
         }
     }
 
-    pub fn preload_photos(&mut self) {
+    fn preload_photos(&mut self) {
         if let Some(rx) = &self.photos_rx {
             match rx.try_recv() {
                 Ok(ui_photo) => {
@@ -93,7 +106,7 @@ impl VsUi {
         }
     }
 
-    pub fn render_photos(&self, ui: &mut eframe::egui::Ui, ctx: &egui::Context) {
+    fn render_photos(&self, ui: &mut eframe::egui::Ui, ctx: &egui::Context) {
         for photo in self.photos.iter() {
             ui.add(egui::ImageButton::new(
                 photo.texture.texture_id(ctx),
@@ -117,28 +130,72 @@ impl VsUi {
             .find(|person| &person.uuid == uuid)
             .unwrap()
     }
-}
 
-impl Default for VsUi {
-    fn default() -> Self {
-        Self {
-            photos: Vec::new(),
-            people: Vec::new(),
-            photos_rx: None,
-        }
+    fn top_panel(&mut self, ctx: &egui::Context) {
+        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
+            ui.add_space(10.);
+            egui::menu::bar(ui, |ui| {
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+                    let recognize_btn = ui.add(egui::Button::new("Recognize"));
+                    let add_person_button = ui.add(egui::Button::new("Add Person"));
+
+                    if add_person_button.clicked() {
+                        self.show_new_person_dialog = true;
+                    }
+                });
+            });
+            ui.add_space(10.);
+        });
     }
-}
 
-impl eframe::App for VsUi {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        ctx.request_repaint();
-        self.preload_photos();
-
+    fn photos_list(&mut self, ctx: &egui::Context) {
         egui::CentralPanel::default().show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 self.render_photos(ui, ctx);
             });
         });
+    }
+
+    fn new_person(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        if self.show_new_person_dialog {
+            egui::Window::new("Add new person")
+                .collapsible(false)
+                .resizable(false)
+                .show(ctx, |ui| {
+                    ui.horizontal(|ui| {
+                        let name_label = ui.label("Name: ");
+                        ui.text_edit_singleline(&mut self.new_person_name)
+                            .labelled_by(name_label.id);
+                    });
+
+                    ui.horizontal(|ui| {
+                        if ui.button("Cancel").clicked() {
+                            self.new_person_name = String::from("");
+                            self.show_new_person_dialog = false;
+                        }
+
+                        if ui.button("Save").clicked() {
+                            crate::db::person::Person::create(
+                                &Uuid::new_v4().to_string(),
+                                &self.new_person_name,
+                            );
+                            self.new_person_name = String::from("");
+                            self.show_new_person_dialog = false;
+                        }
+                    });
+                });
+        }
+    }
+}
+
+impl eframe::App for VsUi {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        ctx.request_repaint();
+        self.preload_photos();
+
+        self.top_panel(ctx);
+        self.photos_list(ctx);
+        self.new_person(ctx, frame);
     }
 }
 
