@@ -209,4 +209,12 @@ impl Face {
             Ok(data) => data.total_count,
         }
     }
+
+    pub fn person(&self) -> Option<crate::db::person::Person> {
+        if self.person_uuid.is_empty() {
+            None
+        } else {
+            Some(crate::db::person::Person::find(&self.person_uuid))
+        }
+    }
 }

@@ -1,3 +1,4 @@
+// // integration tests
 // // backend for uploading photos
 // // data viewer
 // // camera integration
@@ -12,6 +13,7 @@ use video_sentry::db;
 
 use video_sentry::image_processor;
 use video_sentry::trainer;
+use video_sentry::ui;
 
 fn main() {
     // implement ui for moderation
@@ -25,6 +27,7 @@ fn main() {
 
     if args.len() > 1 {
         match args[1].as_str() {
+            "ui" => ui::ui().unwrap(),
             "cli_trainer" => trainer::cli::cli(),
             "train" => stdout_wrapper(|| {
                 trainer::directory_trainer::DirectoryTrainer::new(args[2].clone()).call()

@@ -29,6 +29,11 @@ cargo run processor path/to/photo.jpg
 ```
 recognizes all faces on given photo. Result is a vector of names and difference between closest matched face from database: `[("John Dou", 0.25761012784916366)]`
 
+### UI
+```
+cargo run ui
+```
+
 ## Config
 
 ```

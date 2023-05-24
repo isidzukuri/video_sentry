@@ -54,18 +54,3 @@ impl fmt::Display for Data {
         write!(f, "..................................\r\n")
     }
 }
-
-// pub fn compare_faces(uuid: &String) {
-//     let left_face = crate::db::face::Face::find(&uuid);
-//     let left_encoding = FaceEncoding::from_vec(&left_face.deserialize_measurements()).unwrap();
-
-//     for right_face in crate::db::face::Face::all() {
-//         let right_encoding =
-//             FaceEncoding::from_vec(&right_face.deserialize_measurements()).unwrap();
-
-//         let distance = left_encoding.distance(&right_encoding);
-
-//         println!("{} vs {} -> {:?}", right_face.id, left_face.id, distance);
-//         println!("**********************************");
-//     }
-// }

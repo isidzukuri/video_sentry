@@ -3,10 +3,10 @@ use dlib_face_recognition::*;
 use image;
 use image::*;
 use std::error::Error;
-use std::fs;
 
 use crate::detection::face_image::FaceImage;
 use crate::detection::photo::Photo;
+use crate::storage;
 
 pub mod face_image;
 pub mod photo;
@@ -14,9 +14,10 @@ pub mod photo;
 pub fn call(path: &String) -> Result<Photo, Box<dyn Error>> {
     let mut image = image::open(path).unwrap();
     let mut photo = Photo::new();
-    let folder_path: String = format!("storage/images/{}/", photo.uuid);
+    let folder_path: String = format!("{}/{}/", storage::IMAGES_DIR, photo.uuid);
 
-    save_original_image(&folder_path, &image).expect("original image cannot be saved");
+    storage::save_original_image(&folder_path, &image).expect("original image cannot be saved");
+    storage::save_thumbnail(&folder_path, &image).expect("original image cannot be saved");
 
     let face_locations = detect_faces(&image);
 
@@ -34,13 +35,6 @@ pub fn call(path: &String) -> Result<Photo, Box<dyn Error>> {
     photo.push_img(image);
     measure_faces(&mut photo);
     Ok(photo)
-}
-
-fn save_original_image(folder_path: &String, image: &DynamicImage) -> Result<(), ImageError> {
-    match fs::create_dir_all(folder_path) {
-        Err(error) => panic!("Storage folder cannot be created: {:?}", error),
-        Ok(_) => image.save(format!("{}/original.jpg", folder_path)),
-    }
 }
 
 fn crop_face(

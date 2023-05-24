@@ -146,4 +146,8 @@ impl Photo {
             Ok(data) => data.total_count,
         }
     }
+
+    pub fn faces(&self) -> Vec<crate::db::face::Face> {
+        crate::db::face::Face::where_all(&format!("photo_uuid = '{}'", self.uuid))
+    }
 }
