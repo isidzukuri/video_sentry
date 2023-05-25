@@ -21,10 +21,11 @@ use crate::storage;
 // const CYAN: Color32 = Color32::from_rgb(0, 255, 255);
 // const GREEN: Color32 = Color32::from_rgb(37, 184, 76);
 // const RED: Color32 = Color32::from_rgb(174, 78, 37);
+pub const PADDING: f32 = 15.0;
 
 pub fn ui() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
-        initial_window_size: Some(egui::vec2(540., 960.)),
+        initial_window_size: Some(egui::vec2(540., 800.)),
         ..Default::default()
     };
 
@@ -42,7 +43,9 @@ struct UIPhoto {
     list_item_size: Vec2,
 }
 
-// split into components
+// split into component
+// each should content its own data and allow to acess it by api
+// example PeopleList should contain vec<Person>, person_form, person_search. Clients should be able read only   
 struct VsUi {
     photos: Vec<UIPhoto>,
     people: Vec<crate::db::person::Person>,
@@ -53,7 +56,7 @@ struct VsUi {
     image_picked_path: String,
     recognition_result: Option<crate::image_processor::ProcessingResult>,
     edit_photo_uuid: Option<String>,
-
+    current_photo_image: Option<RetainedImage>,
 }
 
 impl Default for VsUi {
@@ -67,8 +70,22 @@ impl Default for VsUi {
             new_person_name: String::from(""),
             image_picked_path: String::from(""),
             recognition_result: None,
-            edit_photo_uuid: None
+            edit_photo_uuid: None,
+            current_photo_image: None
         }
+    }
+}
+
+impl eframe::App for VsUi {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        ctx.request_repaint();
+        self.preload_photos();
+
+        self.top_panel(ctx);
+        self.photos_list(ctx);
+        self.new_person_form(ctx);
+        self.recognition_form(ctx);
+        self.photo_form(ctx);
     }
 }
 
@@ -144,13 +161,16 @@ impl VsUi {
 
     fn photos_list(&mut self, ctx: &egui::Context) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                for photo in self.photos.iter() {
-                    let button = self.view_photo_list_item(ctx, ui, photo);
-                    if button.clicked() { 
-                        self.edit_photo_uuid = Some(photo.data.uuid.clone());
-                    };
-                }
+            ui.centered(|ui| {
+                egui::ScrollArea::vertical().show(ui, |ui| {
+                    for photo in self.photos.iter() {
+                        let button = self.view_photo_list_item(ctx, ui, photo);
+                        if button.clicked() { 
+                            self.edit_photo_uuid = Some(photo.data.uuid.clone());
+                        };
+                        ui.add_space(PADDING);
+                    }
+                });
             });
         });
     }
@@ -174,10 +194,10 @@ impl VsUi {
                     }
 
                     if ui.button("Save").clicked() {
-                        crate::db::person::Person::create(
+                        self.people.push(crate::db::person::Person::create(
                             &Uuid::new_v4().to_string(),
                             &self.new_person_name,
-                        );
+                        ));
                         self.new_person_name = String::from("");
                         self.show_new_person_form = false;
                     }
@@ -249,7 +269,7 @@ impl VsUi {
 
         for face in photo.faces.iter() {
             if let Some(person) = self.person_by_uuid(&face.person_uuid){
-                ui.label(RichText::new(&person.name).size(10.0).strong());
+                ui.label(RichText::new(&person.name).strong());
             }
         }
         interactive_element
@@ -257,7 +277,7 @@ impl VsUi {
 
     fn photo_form(&mut self, ctx: &egui::Context) {
         let photo_uuid = match &self.edit_photo_uuid {
-            Some(uuid) => uuid,
+            Some(uuid) => uuid.clone(),
             None => return
         };
 
@@ -265,20 +285,32 @@ impl VsUi {
             .collapsible(false)
             .resizable(false)
             .show(ctx, |ui| {
+                let texture: &RetainedImage = self.current_photo_image.get_or_insert_with(|| {
+                    read_image(&photo_uuid, "original.jpg")
+                });
 
-                ui.label("edit here");
+                let [original_width, original_height] = texture.size();
+                let dimensions = crate::storage::resize_to_fit(
+                    &540,
+                    &400,
+                    &(original_width as u32),
+                    &(original_height as u32),
+                );
 
-
-
+                ui.add(egui::Image::new(
+                    texture.texture_id(ctx),
+                    [dimensions.width as f32, dimensions.height as f32]
+                ));
 
                 ui.horizontal(|ui| {
                     if ui.button("Cancel").clicked() {
                         self.edit_photo_uuid = None;
+                        self.current_photo_image = None;
                     }
 
                     if ui.button("Save").clicked() {
-
                         self.edit_photo_uuid = None;
+                        self.current_photo_image = None;
                         // let recognition_result = crate::image_processor::call(&self.image_picked_path);
                         // let uuid = &recognition_result.photo.uuid;
                         // let photo = crate::db::photo::Photo::find(&uuid);
@@ -311,20 +343,9 @@ impl VsUi {
     }
 }
 
-impl eframe::App for VsUi {
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        ctx.request_repaint();
-        self.preload_photos();
-
-        self.top_panel(ctx);
-        self.photos_list(ctx);
-        self.new_person_form(ctx);
-        self.recognition_form(ctx);
-        self.photo_form(ctx);
-    }
-}
-
 pub fn read_image(uuid: &String, name: &str) -> RetainedImage {
+    println!("ui is reading image...");
+
     let mut buffer = vec![];
 
     File::open(format!("{}/{}/{}", storage::IMAGES_DIR, uuid, name))
