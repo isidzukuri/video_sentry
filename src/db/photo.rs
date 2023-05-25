@@ -72,7 +72,7 @@ impl Photo {
     #[tokio::main]
     pub async fn all() -> Vec<Self> {
         let result = sqlx::query_as::<_, Self>(&format!(
-            "SELECT * FROM {table_name} ORDER BY id DESC",
+            "SELECT * FROM {table_name}",
             table_name = &Self::table_name()
         ))
         .fetch_all(db::connection())

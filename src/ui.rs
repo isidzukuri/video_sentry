@@ -47,7 +47,12 @@ struct VsUi {
     people: Vec<crate::db::person::Person>,
     pub photos_rx: Option<mpsc::Receiver<UIPhoto>>,
     show_new_person_form: bool,
+    show_recognition_form: bool,
     new_person_name: String,
+    image_picked_path: String,
+    recognition_result: Option<crate::image_processor::ProcessingResult>,
+    edit_photo_uuid: Option<String>,
+
 }
 
 impl Default for VsUi {
@@ -57,7 +62,11 @@ impl Default for VsUi {
             people: Vec::new(),
             photos_rx: None,
             show_new_person_form: false,
+            show_recognition_form: false,
             new_person_name: String::from(""),
+            image_picked_path: String::from(""),
+            recognition_result: None,
+            edit_photo_uuid: None
         }
     }
 }
@@ -106,29 +115,10 @@ impl VsUi {
         }
     }
 
-    fn render_photos(&self, ui: &mut eframe::egui::Ui, ctx: &egui::Context) {
-        for photo in self.photos.iter() {
-            ui.add(egui::ImageButton::new(
-                photo.texture.texture_id(ctx),
-                photo.texture.size_vec2(),
-                // [100.0, 80.0]
-            ));
-
-            for face in photo.faces.iter() {
-                let person = self.person_by_uuid(&face.person_uuid);
-                ui.label(RichText::new(&person.name).size(10.0).strong());
-            }
-            // name
-            // status
-            // approve button
-        }
-    }
-
-    fn person_by_uuid(&self, uuid: &String) -> &crate::db::person::Person {
+    fn person_by_uuid(&self, uuid: &String) -> Option<&crate::db::person::Person> {
         self.people
             .iter()
             .find(|person| &person.uuid == uuid)
-            .unwrap()
     }
 
     fn top_panel(&mut self, ctx: &egui::Context) {
@@ -142,16 +132,21 @@ impl VsUi {
                     if add_person_button.clicked() {
                         self.show_new_person_form = true;
                     }
+                    if recognize_btn.clicked() {
+                        self.show_recognition_form = true;
+                    }
                 });
             });
             ui.add_space(10.);
         });
     }
 
-    fn photos_list(&mut self, ctx: &egui::Context) {
+    fn photos_list(&self, ctx: &egui::Context) {
         egui::CentralPanel::default().show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
-                self.render_photos(ui, ctx);
+                for photo in self.photos.iter() {
+                    self.view_photo_list_item(ctx, ui, photo);
+                }
             });
         });
     }
@@ -187,33 +182,109 @@ impl VsUi {
     }
 
     fn recognition_form(&mut self, ctx: &egui::Context) {
-        // if !self.show_new_person_form { return }
-        // egui::Window::new("Add new person")
-        //     .collapsible(false)
-        //     .resizable(false)
-        //     .show(ctx, |ui| {
-        //         ui.horizontal(|ui| {
-        //             let name_label = ui.label("Name: ");
-        //             ui.text_edit_singleline(&mut self.new_person_name)
-        //                 .labelled_by(name_label.id);
-        //         });
+        if !self.show_recognition_form { return }
+        egui::Window::new("Recognize faces")
+            .collapsible(false)
+            .resizable(false)
+            .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    let path_label = ui.label("Path to image: ");
+                    ui.text_edit_singleline(&mut self.image_picked_path)
+                        .labelled_by(path_label.id);
+                });
 
-        //         ui.horizontal(|ui| {
-        //             if ui.button("Cancel").clicked() {
-        //                 self.new_person_name = String::from("");
-        //                 self.show_new_person_form = false;
-        //             }
+                if let Some(result) = &self.recognition_result {
+                    ui.label(RichText::new("Face differences:").strong());
+                    if result.display_data.len() == 0 {
+                        ui.label("no matches");
+                    }
+                    for (name, coef) in result.display_data.iter() {
+                        ui.label(&format!("{} -> {}", name, coef));
+                    }
+                    let ui_photo = self.photos
+                                       .iter()
+                                       .find(|photo| photo.data.uuid == result.photo.uuid)
+                                       .unwrap();
 
-        //             if ui.button("Save").clicked() {
-        //                 crate::db::person::Person::create(
-        //                     &Uuid::new_v4().to_string(),
-        //                     &self.new_person_name,
-        //                 );
-        //                 self.new_person_name = String::from("");
-        //                 self.show_new_person_form = false;
-        //             }
-        //         });
-        //     });
+                    self.view_photo_list_item(ctx, ui, &ui_photo);
+                }
+
+                ui.horizontal(|ui| {
+                    if ui.button("Cancel").clicked() {
+                        self.recognition_result = None;
+                        self.new_person_name = String::from("");
+                        self.show_recognition_form = false;
+                    }
+
+                    if ui.button("Recognize").clicked() {
+                        let recognition_result = crate::image_processor::call(&self.image_picked_path);
+                        let uuid = &recognition_result.photo.uuid;
+                        let photo = crate::db::photo::Photo::find(&uuid);
+                        let ui_photo = UIPhoto {
+                            texture: read_image(&photo.uuid, "thumb.jpg"),
+                            faces: photo.faces(),
+                            data: photo,
+                            list_item_size: [100.0, 80.0].into(),
+                        };
+                        self.photos.push(ui_photo);
+                        self.recognition_result = Some(recognition_result);
+                    }
+                });
+            });
+    }
+
+    fn view_photo_list_item(&self, ctx: &egui::Context, ui: &mut eframe::egui::Ui, photo: &UIPhoto) {
+        // let img_button = egui::ImageButton::new(
+        //     photo.texture.texture_id(ctx),
+        //     photo.texture.size_vec2(),
+        //     // [100.0, 80.0]
+        // );
+
+
+        if ui.add(egui::ImageButton::new(
+            photo.texture.texture_id(ctx),
+            photo.texture.size_vec2(),
+            // [100.0, 80.0]
+        )).clicked() { 
+            // self.edit_photo_uuid = Some(photo.data.uuid.clone());
+        };
+
+        for face in photo.faces.iter() {
+            if let Some(person) = self.person_by_uuid(&face.person_uuid){
+                ui.label(RichText::new(&person.name).size(10.0).strong());
+            }
+        }
+    }
+
+
+    fn photo_form(&self, ctx: &egui::Context) {
+        let photo_uuid = match &self.edit_photo_uuid {
+            Some(uuid) => uuid,
+            None => return
+        };
+
+        egui::Window::new("View photo")
+            .collapsible(false)
+            .resizable(false)
+            .show(ctx, |ui| {
+
+                ui.label("edit here");
+
+            });
+
+        // let img_button = egui::ImageButton::new(
+        //     photo.texture.texture_id(ctx),
+        //     photo.texture.size_vec2(),
+        //     // [100.0, 80.0]
+        // );
+
+        // ui.add(img_button);
+
+        // for face in photo.faces.iter() {
+        //     if let Some(person) = self.person_by_uuid(&face.person_uuid){
+        //         ui.label(RichText::new(&person.name).size(10.0).strong());
+        //     }
+        // }
     }
 }
 
@@ -226,6 +297,7 @@ impl eframe::App for VsUi {
         self.photos_list(ctx);
         self.new_person_form(ctx);
         self.recognition_form(ctx);
+        self.photo_form(ctx);
     }
 }
 
