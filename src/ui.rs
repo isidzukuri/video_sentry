@@ -42,6 +42,7 @@ struct UIPhoto {
     list_item_size: Vec2,
 }
 
+// split into components
 struct VsUi {
     photos: Vec<UIPhoto>,
     people: Vec<crate::db::person::Person>,
@@ -141,11 +142,14 @@ impl VsUi {
         });
     }
 
-    fn photos_list(&self, ctx: &egui::Context) {
+    fn photos_list(&mut self, ctx: &egui::Context) {
         egui::CentralPanel::default().show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 for photo in self.photos.iter() {
-                    self.view_photo_list_item(ctx, ui, photo);
+                    let button = self.view_photo_list_item(ctx, ui, photo);
+                    if button.clicked() { 
+                        self.edit_photo_uuid = Some(photo.data.uuid.clone());
+                    };
                 }
             });
         });
@@ -206,7 +210,10 @@ impl VsUi {
                                        .find(|photo| photo.data.uuid == result.photo.uuid)
                                        .unwrap();
 
-                    self.view_photo_list_item(ctx, ui, &ui_photo);
+                    let button = self.view_photo_list_item(ctx, ui, ui_photo);
+                    if button.clicked() { 
+                        self.edit_photo_uuid = Some(ui_photo.data.uuid.clone());
+                    };
                 }
 
                 ui.horizontal(|ui| {
@@ -233,31 +240,22 @@ impl VsUi {
             });
     }
 
-    fn view_photo_list_item(&self, ctx: &egui::Context, ui: &mut eframe::egui::Ui, photo: &UIPhoto) {
-        // let img_button = egui::ImageButton::new(
-        //     photo.texture.texture_id(ctx),
-        //     photo.texture.size_vec2(),
-        //     // [100.0, 80.0]
-        // );
-
-
-        if ui.add(egui::ImageButton::new(
+    fn view_photo_list_item(&self, ctx: &egui::Context, ui: &mut eframe::egui::Ui, photo: &UIPhoto) -> egui::Response {
+        let interactive_element = ui.add(egui::ImageButton::new(
             photo.texture.texture_id(ctx),
             photo.texture.size_vec2(),
             // [100.0, 80.0]
-        )).clicked() { 
-            // self.edit_photo_uuid = Some(photo.data.uuid.clone());
-        };
+        ));
 
         for face in photo.faces.iter() {
             if let Some(person) = self.person_by_uuid(&face.person_uuid){
                 ui.label(RichText::new(&person.name).size(10.0).strong());
             }
         }
+        interactive_element
     }
 
-
-    fn photo_form(&self, ctx: &egui::Context) {
+    fn photo_form(&mut self, ctx: &egui::Context) {
         let photo_uuid = match &self.edit_photo_uuid {
             Some(uuid) => uuid,
             None => return
@@ -269,6 +267,31 @@ impl VsUi {
             .show(ctx, |ui| {
 
                 ui.label("edit here");
+
+
+
+
+                ui.horizontal(|ui| {
+                    if ui.button("Cancel").clicked() {
+                        self.edit_photo_uuid = None;
+                    }
+
+                    if ui.button("Save").clicked() {
+
+                        self.edit_photo_uuid = None;
+                        // let recognition_result = crate::image_processor::call(&self.image_picked_path);
+                        // let uuid = &recognition_result.photo.uuid;
+                        // let photo = crate::db::photo::Photo::find(&uuid);
+                        // let ui_photo = UIPhoto {
+                        //     texture: read_image(&photo.uuid, "thumb.jpg"),
+                        //     faces: photo.faces(),
+                        //     data: photo,
+                        //     list_item_size: [100.0, 80.0].into(),
+                        // };
+                        // self.photos.push(ui_photo);
+                        // self.recognition_result = Some(recognition_result);
+                    }
+                });
 
             });
 
