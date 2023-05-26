@@ -43,9 +43,21 @@ struct UIPhoto {
     list_item_size: Vec2,
 }
 
+impl UIPhoto {
+    pub fn set_faces(&mut self, faces: Vec<crate::db::face::Face>) {
+        self.faces = faces;
+    }
+}
+
+struct FaceFormData {
+    uuid: String,
+    texture: RetainedImage,
+    selected_person_option: (String, String),
+}
+
 // split into component
 // each should content its own data and allow to acess it by api
-// example PeopleList should contain vec<Person>, person_form, person_search. Clients should be able read only   
+// example PeopleList should contain vec<Person>, person_form, person_search. Clients should be able read only
 struct VsUi {
     photos: Vec<UIPhoto>,
     people: Vec<crate::db::person::Person>,
@@ -57,6 +69,8 @@ struct VsUi {
     recognition_result: Option<crate::image_processor::ProcessingResult>,
     edit_photo_uuid: Option<String>,
     current_photo_image: Option<RetainedImage>,
+    faces_form_data: Vec<FaceFormData>,
+    person_options: Vec<(String, String)>,
 }
 
 impl Default for VsUi {
@@ -71,7 +85,9 @@ impl Default for VsUi {
             image_picked_path: String::from(""),
             recognition_result: None,
             edit_photo_uuid: None,
-            current_photo_image: None
+            current_photo_image: None,
+            faces_form_data: Vec::new(),
+            person_options: Vec::new(),
         }
     }
 }
@@ -108,7 +124,7 @@ impl VsUi {
     fn fetch_photos(photos_tx: &mut std::sync::mpsc::Sender<UIPhoto>) {
         for photo in Photo::all().iter() {
             let ui_photo = UIPhoto {
-                texture: read_image(&photo.uuid, "thumb.jpg"),
+                texture: storage::read_image_for_ui(&photo.uuid, "thumb.jpg"),
                 data: photo.clone(),
                 faces: photo.faces(),
                 list_item_size: [100.0, 80.0].into(),
@@ -134,9 +150,7 @@ impl VsUi {
     }
 
     fn person_by_uuid(&self, uuid: &String) -> Option<&crate::db::person::Person> {
-        self.people
-            .iter()
-            .find(|person| &person.uuid == uuid)
+        self.people.iter().find(|person| &person.uuid == uuid)
     }
 
     fn top_panel(&mut self, ctx: &egui::Context) {
@@ -165,7 +179,33 @@ impl VsUi {
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     for photo in self.photos.iter() {
                         let button = self.view_photo_list_item(ctx, ui, photo);
-                        if button.clicked() { 
+                        if button.clicked() {
+                            self.current_photo_image =
+                                Some(storage::read_image_for_ui(&photo.data.uuid, "original.jpg"));
+
+                            for face in photo.faces.iter() {
+                                let selected_person_option = match face.person() {
+                                    Some(person) => (person.uuid, person.name),
+                                    None => (String::from(""), String::from("")),
+                                };
+
+                                self.faces_form_data.push(FaceFormData {
+                                    uuid: face.uuid.clone(),
+                                    texture: storage::read_image_for_ui(
+                                        &photo.data.uuid,
+                                        format!("{}.jpg", face.uuid).as_str(),
+                                    ),
+                                    selected_person_option: selected_person_option,
+                                });
+                            }
+
+                            for person in self.people.iter() {
+                                self.person_options.push((
+                                    person.uuid.clone().to_string(),
+                                    person.name.clone().to_string(),
+                                ));
+                            }
+
                             self.edit_photo_uuid = Some(photo.data.uuid.clone());
                         };
                         ui.add_space(PADDING);
@@ -176,7 +216,9 @@ impl VsUi {
     }
 
     fn new_person_form(&mut self, ctx: &egui::Context) {
-        if !self.show_new_person_form { return }
+        if !self.show_new_person_form {
+            return;
+        }
         egui::Window::new("Add new person")
             .collapsible(false)
             .resizable(false)
@@ -206,7 +248,9 @@ impl VsUi {
     }
 
     fn recognition_form(&mut self, ctx: &egui::Context) {
-        if !self.show_recognition_form { return }
+        if !self.show_recognition_form {
+            return;
+        }
         egui::Window::new("Recognize faces")
             .collapsible(false)
             .resizable(false)
@@ -225,15 +269,13 @@ impl VsUi {
                     for (name, coef) in result.display_data.iter() {
                         ui.label(&format!("{} -> {}", name, coef));
                     }
-                    let ui_photo = self.photos
-                                       .iter()
-                                       .find(|photo| photo.data.uuid == result.photo.uuid)
-                                       .unwrap();
+                    let ui_photo = self
+                        .photos
+                        .iter()
+                        .find(|photo| photo.data.uuid == result.photo.uuid)
+                        .unwrap();
 
-                    let button = self.view_photo_list_item(ctx, ui, ui_photo);
-                    if button.clicked() { 
-                        self.edit_photo_uuid = Some(ui_photo.data.uuid.clone());
-                    };
+                    self.view_photo_list_item(ctx, ui, ui_photo);
                 }
 
                 ui.horizontal(|ui| {
@@ -244,11 +286,12 @@ impl VsUi {
                     }
 
                     if ui.button("Recognize").clicked() {
-                        let recognition_result = crate::image_processor::call(&self.image_picked_path);
+                        let recognition_result =
+                            crate::image_processor::call(&self.image_picked_path);
                         let uuid = &recognition_result.photo.uuid;
                         let photo = crate::db::photo::Photo::find(&uuid);
                         let ui_photo = UIPhoto {
-                            texture: read_image(&photo.uuid, "thumb.jpg"),
+                            texture: storage::read_image_for_ui(&photo.uuid, "thumb.jpg"),
                             faces: photo.faces(),
                             data: photo,
                             list_item_size: [100.0, 80.0].into(),
@@ -260,7 +303,12 @@ impl VsUi {
             });
     }
 
-    fn view_photo_list_item(&self, ctx: &egui::Context, ui: &mut eframe::egui::Ui, photo: &UIPhoto) -> egui::Response {
+    fn view_photo_list_item(
+        &self,
+        ctx: &egui::Context,
+        ui: &mut eframe::egui::Ui,
+        photo: &UIPhoto,
+    ) -> egui::Response {
         let interactive_element = ui.add(egui::ImageButton::new(
             photo.texture.texture_id(ctx),
             photo.texture.size_vec2(),
@@ -268,7 +316,7 @@ impl VsUi {
         ));
 
         for face in photo.faces.iter() {
-            if let Some(person) = self.person_by_uuid(&face.person_uuid){
+            if let Some(person) = self.person_by_uuid(&face.person_uuid) {
                 ui.label(RichText::new(&person.name).strong());
             }
         }
@@ -278,80 +326,98 @@ impl VsUi {
     fn photo_form(&mut self, ctx: &egui::Context) {
         let photo_uuid = match &self.edit_photo_uuid {
             Some(uuid) => uuid.clone(),
-            None => return
+            None => return,
         };
 
         egui::Window::new("View photo")
             .collapsible(false)
             .resizable(false)
             .show(ctx, |ui| {
-                let texture: &RetainedImage = self.current_photo_image.get_or_insert_with(|| {
-                    read_image(&photo_uuid, "original.jpg")
-                });
+                egui::ScrollArea::vertical()
+                    .max_height(500.)
+                    .show(ui, |ui| {
+                        let Some(texture) = &self.current_photo_image else { panic!("Original photo texture is missing") };
+                        ui.add(sized_img_element(&ctx, texture, 540, 350));
 
-                let [original_width, original_height] = texture.size();
-                let dimensions = crate::storage::resize_to_fit(
-                    &540,
-                    &400,
-                    &(original_width as u32),
-                    &(original_height as u32),
-                );
+                        for face_data in self.faces_form_data.iter_mut() {
+                            ui.horizontal(|ui| {
+                                ui.add(sized_img_element(&ctx, &face_data.texture, 100, 100));
 
-                ui.add(egui::Image::new(
-                    texture.texture_id(ctx),
-                    [dimensions.width as f32, dimensions.height as f32]
-                ));
+                                ui.label("Person:");
+
+                                let mut selected_uuid = &face_data.selected_person_option.0;
+                                let mut selected_text = &face_data.selected_person_option.1;
+                                egui::ComboBox::new(&face_data.uuid, "")
+                                    .selected_text(selected_text)
+                                    .show_ui(ui, |ui| {
+                                        for option in self.person_options.iter() {
+                                                                // set value to,    value,     label 
+                                            ui.selectable_value(&mut selected_uuid, &option.0, &option.1);
+                                        }
+                                    }
+                                );
+
+                                if !selected_uuid.is_empty() {
+                                    let name = &self.person_options
+                                                 .iter()
+                                                 .find(|person| &person.0 == selected_uuid)
+                                                 .unwrap().1;
+
+                                    face_data.selected_person_option = (
+                                        selected_uuid.clone(),
+                                        name.clone()
+                                        );
+                                }
+                            });
+                        }
+                    });
 
                 ui.horizontal(|ui| {
                     if ui.button("Cancel").clicked() {
                         self.edit_photo_uuid = None;
                         self.current_photo_image = None;
+                        self.faces_form_data = Vec::new();
                     }
 
                     if ui.button("Save").clicked() {
+                        for face_data in self.faces_form_data.iter() {
+                            crate::db::face::Face::moderate_person(&face_data.uuid, &face_data.selected_person_option.0);
+                        }
+
+                        let ui_photo = self.photos
+                            .iter_mut()
+                             .find(|ui_photo| ui_photo.data.uuid == self.edit_photo_uuid.clone().unwrap())
+                             .unwrap();
+
+                        ui_photo.set_faces(ui_photo.data.faces());
+
                         self.edit_photo_uuid = None;
                         self.current_photo_image = None;
-                        // let recognition_result = crate::image_processor::call(&self.image_picked_path);
-                        // let uuid = &recognition_result.photo.uuid;
-                        // let photo = crate::db::photo::Photo::find(&uuid);
-                        // let ui_photo = UIPhoto {
-                        //     texture: read_image(&photo.uuid, "thumb.jpg"),
-                        //     faces: photo.faces(),
-                        //     data: photo,
-                        //     list_item_size: [100.0, 80.0].into(),
-                        // };
-                        // self.photos.push(ui_photo);
-                        // self.recognition_result = Some(recognition_result);
+                        self.person_options = Vec::new();
+                        self.faces_form_data = Vec::new();
                     }
                 });
 
             });
-
-        // let img_button = egui::ImageButton::new(
-        //     photo.texture.texture_id(ctx),
-        //     photo.texture.size_vec2(),
-        //     // [100.0, 80.0]
-        // );
-
-        // ui.add(img_button);
-
-        // for face in photo.faces.iter() {
-        //     if let Some(person) = self.person_by_uuid(&face.person_uuid){
-        //         ui.label(RichText::new(&person.name).size(10.0).strong());
-        //     }
-        // }
     }
 }
 
-pub fn read_image(uuid: &String, name: &str) -> RetainedImage {
-    println!("ui is reading image...");
+pub fn sized_img_element(
+    ctx: &egui::Context,
+    texture: &RetainedImage,
+    width: u32,
+    height: u32,
+) -> egui::Image {
+    let [original_width, original_height] = texture.size();
+    let dimensions = crate::storage::resize_to_fit(
+        &width,
+        &height,
+        &(original_width as u32),
+        &(original_height as u32),
+    );
 
-    let mut buffer = vec![];
-
-    File::open(format!("{}/{}/{}", storage::IMAGES_DIR, uuid, name))
-        .unwrap()
-        .read_to_end(&mut buffer)
-        .unwrap();
-
-    RetainedImage::from_image_bytes(name, &buffer[..]).unwrap()
+    egui::Image::new(
+        texture.texture_id(ctx),
+        [dimensions.width as f32, dimensions.height as f32],
+    )
 }

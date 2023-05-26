@@ -1,6 +1,9 @@
+use egui_extras::image::RetainedImage;
 use image;
 use image::*;
 use std::fs;
+use std::fs::File;
+use std::io::Read;
 
 pub const IMAGES_DIR: &str = "storage/images/";
 pub const THUMB_DIMENSIONS: AreaDimensions = AreaDimensions {
@@ -69,4 +72,17 @@ pub fn calculate_ratio(
     let ratio = *area_size as f64 / *image_size as f64;
 
     ratio
+}
+
+pub fn read_image_for_ui(uuid: &String, name: &str) -> RetainedImage {
+    println!("ui is reading image...");
+
+    let mut buffer = vec![];
+
+    File::open(format!("{}/{}/{}", IMAGES_DIR, uuid, name))
+        .unwrap()
+        .read_to_end(&mut buffer)
+        .unwrap();
+
+    RetainedImage::from_image_bytes(name, &buffer[..]).unwrap()
 }

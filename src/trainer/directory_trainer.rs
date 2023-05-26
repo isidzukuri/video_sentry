@@ -57,11 +57,7 @@ impl DirectoryTrainer {
 
         let recognized_person_uuid = self.get_person_uuid(name);
         let face_uuid = &photo.faces[0].uuid;
-        let moderated = (&"moderated".to_string(), &"true".to_string());
-        let person_uuid = (&"person_uuid".to_string(), &recognized_person_uuid);
-        let update_params = vec![moderated, person_uuid];
-
-        crate::db::face::Face::update(&face_uuid, update_params);
+        crate::db::face::Face::moderate_person(&face_uuid, &recognized_person_uuid);
     }
 
     fn parse_name(file_path: &String) -> String {

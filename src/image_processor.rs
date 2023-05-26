@@ -4,11 +4,10 @@ use std::collections::HashMap;
 
 const MAX_DISTANCE: f64 = 0.6;
 
-
 pub struct ProcessingResult {
     pub photo: detection::photo::Photo,
     pub display_data: Vec<(String, f64)>,
-    pub face_matches: HashMap<String, crate::recognition::Data>
+    pub face_matches: HashMap<String, crate::recognition::Data>,
 }
 
 pub fn call(path: &String) -> ProcessingResult {
@@ -47,5 +46,9 @@ pub fn recognize_faces(path: &String) -> ProcessingResult {
         recognition_results.insert(face.uuid.clone(), result);
     }
 
-    ProcessingResult { photo: photo, face_matches: recognition_results, display_data: Vec::new() }
+    ProcessingResult {
+        photo: photo,
+        face_matches: recognition_results,
+        display_data: Vec::new(),
+    }
 }

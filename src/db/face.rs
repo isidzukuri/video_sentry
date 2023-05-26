@@ -217,4 +217,11 @@ impl Face {
             Some(crate::db::person::Person::find(&self.person_uuid))
         }
     }
+
+    pub fn moderate_person(face_uuid: &String, recognized_person_uuid: &String) {
+        let moderated = (&"moderated".to_string(), &"true".to_string());
+        let person_uuid = (&"person_uuid".to_string(), recognized_person_uuid);
+        let update_params = vec![moderated, person_uuid];
+        crate::db::face::Face::update(&face_uuid, update_params);
+    }
 }
