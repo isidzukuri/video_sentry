@@ -1,26 +1,14 @@
-use std::fs::File;
 use std::sync::mpsc;
 use std::thread;
 use uuid::Uuid;
 
 use eframe::egui;
-use egui::Color32;
-use egui::Vec2;
-
+use egui::RichText;
 use egui_extras::image::RetainedImage;
-// use egui_extras::RetainedImage;
-use std::io::Read;
-
-// use egui::FontDefinitions;
-// use egui::epi::App;
-use egui::{FontFamily, FontId, RichText, TextStyle};
 
 use crate::db::photo::Photo;
 use crate::storage;
 
-// const CYAN: Color32 = Color32::from_rgb(0, 255, 255);
-// const GREEN: Color32 = Color32::from_rgb(37, 184, 76);
-// const RED: Color32 = Color32::from_rgb(174, 78, 37);
 pub const PADDING: f32 = 15.0;
 
 pub fn ui() -> Result<(), eframe::Error> {
@@ -40,7 +28,6 @@ struct UIPhoto {
     texture: RetainedImage,
     data: Photo,
     faces: Vec<crate::db::face::Face>,
-    list_item_size: Vec2,
 }
 
 impl UIPhoto {
@@ -55,7 +42,7 @@ struct FaceFormData {
     selected_person_option: (String, String),
 }
 
-// split into component
+// split into components
 // each should content its own data and allow to acess it by api
 // example PeopleList should contain vec<Person>, person_form, person_search. Clients should be able read only
 struct VsUi {
@@ -93,7 +80,7 @@ impl Default for VsUi {
 }
 
 impl eframe::App for VsUi {
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         ctx.request_repaint();
         self.preload_photos();
 
@@ -127,7 +114,6 @@ impl VsUi {
                 texture: storage::read_image_for_ui(&photo.uuid, "thumb.jpg"),
                 data: photo.clone(),
                 faces: photo.faces(),
-                list_item_size: [100.0, 80.0].into(),
             };
 
             if let Err(e) = photos_tx.send(ui_photo) {
@@ -175,7 +161,7 @@ impl VsUi {
 
     fn photos_list(&mut self, ctx: &egui::Context) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.centered(|ui| {
+            ui.vertical_centered(|ui| {
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     for photo in self.photos.iter() {
                         let button = self.view_photo_list_item(ctx, ui, photo);
@@ -294,7 +280,6 @@ impl VsUi {
                             texture: storage::read_image_for_ui(&photo.uuid, "thumb.jpg"),
                             faces: photo.faces(),
                             data: photo,
-                            list_item_size: [100.0, 80.0].into(),
                         };
                         self.photos.push(ui_photo);
                         self.recognition_result = Some(recognition_result);
@@ -324,7 +309,7 @@ impl VsUi {
     }
 
     fn photo_form(&mut self, ctx: &egui::Context) {
-        let photo_uuid = match &self.edit_photo_uuid {
+        let _photo_uuid = match &self.edit_photo_uuid {
             Some(uuid) => uuid.clone(),
             None => return,
         };
@@ -346,7 +331,7 @@ impl VsUi {
                                 ui.label("Person:");
 
                                 let mut selected_uuid = &face_data.selected_person_option.0;
-                                let mut selected_text = &face_data.selected_person_option.1;
+                                let selected_text = &face_data.selected_person_option.1;
                                 egui::ComboBox::new(&face_data.uuid, "")
                                     .selected_text(selected_text)
                                     .show_ui(ui, |ui| {
@@ -376,6 +361,7 @@ impl VsUi {
                     if ui.button("Cancel").clicked() {
                         self.edit_photo_uuid = None;
                         self.current_photo_image = None;
+                        self.person_options = Vec::new();
                         self.faces_form_data = Vec::new();
                     }
 

@@ -1,5 +1,5 @@
 use crate::detection;
-use crate::recognition::{self, Data};
+use crate::recognition;
 use std::collections::HashMap;
 
 const MAX_DISTANCE: f64 = 0.6;

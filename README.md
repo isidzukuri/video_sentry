@@ -1,7 +1,8 @@
 WIP. My first rust project created for self education purpose while learning the language.
 
-`equi`  - gor face detection and recognition 
-`dlib`  - UI
+`equi`  - UI
+
+`dlib`  - for face detection and recognition
 
 
 ## Instalation

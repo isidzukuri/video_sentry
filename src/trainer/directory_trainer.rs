@@ -81,15 +81,14 @@ impl DirectoryTrainer {
     }
 
     fn get_person_uuid(&mut self, name: String) -> String {
-        let mut recognized_person_uuid = "".to_string();
-        if self.people.contains_key(&name) {
-            recognized_person_uuid = self.people.get(&name).unwrap().to_string();
-        } else {
-            recognized_person_uuid =
-                crate::db::person::Person::create(&Uuid::new_v4().to_string(), &name).uuid;
-            self.people.insert(name, recognized_person_uuid.clone());
+        match self.people.contains_key(&name) {
+            true => self.people.get(&name).unwrap().to_string(),
+            false => {
+                let recognized_person_uuid =
+                    crate::db::person::Person::create(&Uuid::new_v4().to_string(), &name).uuid;
+                self.people.insert(name, recognized_person_uuid.clone());
+                recognized_person_uuid
+            }
         }
-
-        recognized_person_uuid
     }
 }
