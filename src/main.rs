@@ -1,6 +1,4 @@
 // // integration tests
-// // backend for uploading photos
-// // data viewer
 // // camera integration
 
 use colored::Colorize;
@@ -14,12 +12,9 @@ use video_sentry::db;
 use video_sentry::image_processor;
 use video_sentry::trainer;
 use video_sentry::ui;
+use video_sentry::video_processor;
 
 fn main() {
-    // implement ui for moderation
-    // - list of photos
-    // - moderation form
-
     let args: Vec<String> = env::args().collect();
     debug_println!("{:?}", args);
 
@@ -35,15 +30,12 @@ fn main() {
             "processor" => stdout_wrapper(|| {
                 image_processor::call(&args[2]);
             }),
+            "video" => stdout_wrapper(|| {
+                video_processor::call(&args[2]).unwrap();
+            }),
             &_ => todo!(),
         }
     }
-
-    // make screenshot from video
-    // analyze faces
-    // test recognition on photos with several faces
-    // store data to db
-    // notify admin if new faces
 }
 
 fn stdout_wrapper<F: Fn()>(f: F) {

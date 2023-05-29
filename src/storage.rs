@@ -5,6 +5,7 @@ use std::fs;
 use std::fs::File;
 use std::io::Read;
 
+pub const TMP_DIR: &str = "storage/tmp/";
 pub const IMAGES_DIR: &str = "storage/images/";
 pub const THUMB_DIMENSIONS: AreaDimensions = AreaDimensions {
     width: 400,

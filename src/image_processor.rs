@@ -1,6 +1,7 @@
 use crate::detection;
 use crate::recognition;
 use std::collections::HashMap;
+use std::error::Error;
 
 const MAX_DISTANCE: f64 = 0.6;
 
@@ -10,9 +11,15 @@ pub struct ProcessingResult {
     pub face_matches: HashMap<String, crate::recognition::Data>,
 }
 
-pub fn call(path: &String) -> ProcessingResult {
+pub fn call(path: &String) -> Option<ProcessingResult> {
     let mut result: Vec<(String, f64)> = Vec::new();
-    let mut recognition_results = recognize_faces(&path);
+    let mut recognition_results = match recognize_faces(&path) {
+        Ok(data) => data,
+        Err(error) => {
+            println!("Face detection failed: {:?}", error);
+            return None
+        }
+    };
 
     for (face_uuid, &ref recognition) in recognition_results.face_matches.iter() {
         if recognition.matches.len() == 0 {
@@ -28,13 +35,13 @@ pub fn call(path: &String) -> ProcessingResult {
     }
     println!("{:?}", result);
     recognition_results.display_data = result;
-    recognition_results
+    Some(recognition_results)
 }
 
-pub fn recognize_faces(path: &String) -> ProcessingResult {
+pub fn recognize_faces(path: &String) -> Result<ProcessingResult, Box<dyn Error>> {
     let mut recognition_results = HashMap::new();
     let photo = match detection::call(&path) {
-        Err(error) => panic!("Face detection failed: {:?}", error),
+        Err(error) => return Err(error),
         Ok(photo) => photo,
     };
 
@@ -46,9 +53,9 @@ pub fn recognize_faces(path: &String) -> ProcessingResult {
         recognition_results.insert(face.uuid.clone(), result);
     }
 
-    ProcessingResult {
+    Ok(ProcessingResult {
         photo: photo,
         face_matches: recognition_results,
         display_data: Vec::new(),
-    }
+    })
 }

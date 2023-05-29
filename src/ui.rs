@@ -272,8 +272,10 @@ impl VsUi {
                     }
 
                     if ui.button("Recognize").clicked() {
-                        let recognition_result =
-                            crate::image_processor::call(&self.image_picked_path);
+                        let recognition_result = match crate::image_processor::call(&self.image_picked_path) {
+                            Some(result) => result,
+                            None => panic!("Recognition failed")
+                        };
                         let uuid = &recognition_result.photo.uuid;
                         let photo = crate::db::photo::Photo::find(&uuid);
                         let ui_photo = UIPhoto {

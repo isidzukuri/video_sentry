@@ -7,6 +7,8 @@ ENV APP_HOME /home/video_sentry
 
 RUN apt-get update -qq && apt-get install -y build-essential cmake pkg-config libx11-dev libatlas-base-dev libgtk-3-dev libboost-python-dev
 RUN apt-get install -y python-dev python3-dev python3-pip
+RUN apt-get install -y ffmpeg
+
 
 RUN pip install dlib
 
