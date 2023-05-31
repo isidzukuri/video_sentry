@@ -9,6 +9,7 @@ use image;
 use uuid::Uuid;
 use crate::storage;
 
+// WIP
 pub fn call(path_to_file: &String) -> Result<(), ffmpeg::Error> {
     ffmpeg::init().unwrap();
 
@@ -66,6 +67,7 @@ pub fn call(path_to_file: &String) -> Result<(), ffmpeg::Error> {
         fs::remove_dir_all(tmp_folder).unwrap();
     }
 
+    // TODO: return recognition result
     Ok(())
 }
 

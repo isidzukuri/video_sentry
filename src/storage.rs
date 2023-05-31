@@ -6,7 +6,7 @@ use std::fs::File;
 use std::io::Read;
 
 pub const TMP_DIR: &str = "storage/tmp/";
-pub const IMAGES_DIR: &str = "storage/images/";
+pub const IMAGES_DIR: &str = "storage/images/"; // TODO: make it env var
 pub const THUMB_DIMENSIONS: AreaDimensions = AreaDimensions {
     width: 400,
     height: 120,
