@@ -46,3 +46,5 @@ fn stdout_wrapper<F: Fn()>(f: F) {
     sp.stop();
     println!("\r\n{} {:?}\r\n", "Done!".green().bold(), duration);
 }
+
+// TODO: connect to ip camera

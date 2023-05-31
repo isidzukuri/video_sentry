@@ -11,6 +11,12 @@ pub struct ProcessingResult {
     pub face_matches: HashMap<String, crate::recognition::Data>,
 }
 
+impl ProcessingResult {
+    pub fn is_face_found(&self) -> bool {
+        self.face_matches.len() > 0
+    }
+}
+
 pub fn call(path: &String) -> Option<ProcessingResult> {
     match recognize_faces(&path) {
         Err(error) => {

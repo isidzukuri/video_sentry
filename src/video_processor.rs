@@ -45,7 +45,17 @@ pub fn call(path_to_file: &String) -> Result<(), ffmpeg::Error> {
                     scaler.run(&decoded, &mut rgb_frame)?;
                     let path_to_image = save_image(&rgb_frame, frame_index, &tmp_folder).unwrap();
 
-                    if crate::image_processor::call(&path_to_image).is_some() { return Ok(true)};
+                    match crate::image_processor::call(&path_to_image) {
+                        None => {},
+                        Some(recognition_result) => {
+                            if recognition_result.is_face_found() { 
+                                return Ok(true) 
+                            } else {
+                                return Ok(false)
+                            }
+                        }
+                    }
+
                     frame_index += 1;
                 }
                 Ok(false)
