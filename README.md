@@ -1,4 +1,4 @@
-WIP. My first rust project created for self education purpose while learning the language.
+WIP. First rust project created for learning the language.
 
 `equi`  - UI
 
